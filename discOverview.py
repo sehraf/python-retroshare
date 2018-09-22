@@ -6,6 +6,8 @@ from git import Repo
 debug = False
 
 port = 9092
+user = 'test'
+pw = 'tset'
 repoPath = '~/Projects/RetroShare'
 
 def debugDump(label, data):
@@ -16,7 +18,7 @@ def sendRequest(function, data = None):
 	url = 'http://127.0.0.1:' + str(port) + function
 
 	debugDump('POST: ' + url, data)
-	resp = requests.post(url=url, json=data)
+	resp = requests.post(url=url, json=data, auth=(user, pw))
 
 	debugDump('RESP', resp.json())
 	return resp.json()
