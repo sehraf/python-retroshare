@@ -34,6 +34,7 @@ if __name__ == "__main__":
 			continue
 
 		p = resp['permissions']
+		p['mDefaultAllowed'] = True
 		p['mPeersDenied'].clear()
 		p['mPeersAllowed'].clear()
 				
