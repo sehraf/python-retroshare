@@ -4,7 +4,7 @@ import json, requests, re
 
 debug = False
 
-port = 9093
+port = 9092
 user = 'test'
 pw = 'tset'
 
