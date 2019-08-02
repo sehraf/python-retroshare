@@ -20,19 +20,28 @@ def sendRequest(function, data = None):
 	debugDump('POST: ' + url, data)
 	resp = requests.post(url=url, json=data, auth=(user, pw))
 
+	# gracefully add 401 error
+	if resp.status_code == 401:
+		return {'retval': False}
+
 	debugDump('RESP', resp.json())
 	return resp.json()
 
 class rsGit:
+	# v0.6.4-481-gfe5e83125
 	regEx = '(.+-?.+)-(.+)-(.+)'
 	def __init__(self):
 		self.git = Repo(repoPath)
 		self.git.git.checkout('RetroShare/master')
 
-		# v0.6.4-481-gfe5e83125
 		t = self.git.git.describe('--tags')
 		match = re.search(self.regEx, t)
-		self.tag = match.group(1)
+
+		if match is not None:
+			self.tag = match.group(1)
+		else:
+			# v0.6.5-RC1
+			self.tag = t
 
 	def getCommitNum(self, hash):
 		try:
@@ -97,11 +106,10 @@ if __name__ == "__main__":
 	print('found ' + str(entries) + ' entries')
 	print('---------------------------------')
 
-	for version, number in sorted(versions.items(), key=lambda x: x[1]):
+	for version, number in sorted(versions.items(), key=lambda x: x[0]):
 		print(version + ':\ttimes seen: ' + str(number))
 	print('---------------------------------')
 
-	# for hash, number in gits.items():
 	past = 0
 	future  = 0
 	for hash, number in sorted(gits.items(), key=lambda x: x[1]):
@@ -115,10 +123,14 @@ if __name__ == "__main__":
 		else:
 			print(hash + ':  ~invalid~\ttimes seen: ' + str(number))
 
+		if hash == '01234567 ':
+			future = future + number
+			continue
+
 		if not valid:
 			continue
 			
-		if tagLatest or hash == '01234567': 
+		if tagLatest:
 			future = future + number
 		else: 
 			past = past + number

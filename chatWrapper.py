@@ -10,7 +10,8 @@ user = 'test'
 pw = 'tset'
 lobbyName = 'Retroshare Devel (signed)'
 # lobbyName = 'abcdefg'
-program = './ipOverview.py'
+#program = './ipOverview.py'
+program = './discOverview.py'
 
 def debugDump(label, data):
 	if not debug: return
@@ -22,8 +23,13 @@ def sendRequest(function, data = None):
 	debugDump('POST: ' + url, data)
 	resp = requests.post(url=url, json=data, auth=(user, pw))
 
+	# gracefully add 401 error
+	if resp.status_code == 401:
+		return {'retval': False}
+
 	debugDump('RESP', resp.json())
 	return resp.json()
+
 
 class rsChat:
 	def __init__(self, name):

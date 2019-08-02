@@ -21,6 +21,10 @@ def sendRequest(function, data = None):
 	debugDump('POST: ' + url, data)
 	resp = requests.post(url=url, json=data, auth=(user, pw))
 
+	# gracefully add 401 error
+	if resp.status_code == 401:
+		return {'retval': False}
+
 	debugDump('RESP', resp.json())
 	return resp.json()
 
@@ -36,7 +40,7 @@ class rsGroup:
 		if resp['retval']:
 			self.info = resp['groupInfo']
 		else:
-			create()
+			self.create()
 
 	def create(self):
 		self.info = {

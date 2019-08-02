@@ -18,8 +18,13 @@ def sendRequest(function, data = None):
 	debugDump('POST: ' + url, data)
 	resp = requests.post(url=url, json=data, auth=(user, pw))
 
+	# gracefully add 401 error
+	if resp.status_code == 401:
+		return {'retval': False}
+
 	debugDump('RESP', resp.json())
 	return resp.json()
+
 
 # curl -u 'test:tset' --data '{"mId":"rsMsgs/getMessage"}' --silent http://127.0.0.1:9092/rsServiceControl/getOwnServices | grep mServiceName | sed -e 's/mServiceName":\s"//g' -e 's/"/'"'"'/g' -e 's/,/: False,/g' -e 's/\s\s//g'
 # 'disc': False,

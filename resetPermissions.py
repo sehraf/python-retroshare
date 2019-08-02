@@ -18,8 +18,13 @@ def sendRequest(function, data = None):
 	debugDump('POST: ' + url, data)
 	resp = requests.post(url=url, json=data, auth=(user, pw))
 
+	# gracefully add 401 error
+	if resp.status_code == 401:
+		return {'retval': False}
+
 	debugDump('RESP', resp.json())
 	return resp.json()
+
 
 
 if __name__ == "__main__":
@@ -37,7 +42,7 @@ if __name__ == "__main__":
 		p['mDefaultAllowed'] = True
 		p['mPeersDenied'].clear()
 		p['mPeersAllowed'].clear()
-				
+
 		# update req
 		req['permissions'] = p
 		sendRequest('/rsServiceControl/updateServicePermissions', req)
