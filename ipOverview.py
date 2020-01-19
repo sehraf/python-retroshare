@@ -97,8 +97,8 @@ if __name__ == "__main__":
 
 			if details['connectAddr'] == "":
 				continue
-			
-			# count online			
+
+			# count online
 			if re.search('^\d+.\d+.\d+.\d+$', details['connectAddr']) != None:
 				v4c = v4c + 1
 				v4o = v4o + (1 - ser)
@@ -119,10 +119,10 @@ if __name__ == "__main__":
 		# const uint32_t RS_PEER_CONNECTSTATE_CONNECTED_I2P     = 7;
 		# const uint32_t RS_PEER_CONNECTSTATE_CONNECTED_UNKNOWN = 8;
 		v = details['connectState']
-		if v is 4:
+		if v == 4:
 			tcpo = tcpo + (1 - ser)
 			tcpi = tcpi + ser
-		elif v is 5:
+		elif v == 5:
 			udpo = udpo + (1 - ser)
 			udpi = udpi + ser
 
