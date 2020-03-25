@@ -1,41 +1,64 @@
 #!/usr/bin/env python3
 
-import json, requests, time, math
+import json, requests, time, math, argparse
 
 debug = False
 
-port = 9092
-user = 'test'
-pw = 'tset'
 groupName = "Graveyard"
 offlineLimit = 30 # days
-
 
 def debugDump(label, data):
 	if not debug: return
 	print(label, json.dumps(data, sort_keys=True, indent=4))
 
-def sendRequest(function, data = None):
-	url = 'http://127.0.0.1:' + str(port) + function
 
-	debugDump('POST: ' + url, data)
-	resp = requests.post(url=url, json=data, auth=(user, pw))
+class rsHost:
+	_ip = '127.0.0.1'
+	_port = '9092'
+	_auth = ('test', 'tset')
 
-	# gracefully add 401 error
-	if resp.status_code == 401:
-		return {'retval': False}
+	def __init__(self):
+		parser = argparse.ArgumentParser(description='reads standard RS json API parameters.')
+		parser.add_argument('--port', '-p', dest='port')
+		parser.add_argument('--addr', '-a', dest='addr')
+		parser.add_argument('--user', '-u', dest='user')
+		parser.add_argument('--pass', '-P', dest='pw')
+		args = parser.parse_args()
 
-	debugDump('RESP', resp.json())
-	return resp.json()
+		# print(args)
+
+		if args.addr is not None:
+			self._ip = args.addr
+		if args.port is not None:
+			self._port = args.port
+		if args.user is not None and args.pw is not None:
+			self._auth = (args.user, args.pw)
+
+		pass
+
+	def sendRequest(self, function, data=None):
+		url = 'http://' + self._ip + ':' + self._port + function
+
+		debugDump('POST: ' + url, data)
+		resp = requests.post(url=url, json=data, auth=self._auth)
+
+		# gracefully add 401 error
+		if resp.status_code == 401:
+			return {'retval': False}
+
+		debugDump('RESP', resp.json())
+		return resp.json()
+
 
 class rsGroup:
-	def __init__(self, name):
+	def __init__(self, rs : rsHost, name : str):
 		self.name = name
 		self.info = {}
+		self.rs = rs
 
 		# init info
 		req = {'groupName': name}
-		resp = sendRequest('/rsPeers/getGroupInfoByName', req)
+		resp = self.rs.sendRequest('/rsPeers/getGroupInfoByName', req)
 
 		if resp['retval']:
 			self.info = resp['groupInfo']
@@ -52,21 +75,21 @@ class rsGroup:
 
 		req = {'groupInfo': self.info}
 		# assume no error here
-		sendRequest('/rsPeers/addGroup', req)
+		self.rs.sendRequest('/rsPeers/addGroup', req)
 
 		req = {'groupName': self.name}
-		self.info = sendRequest('/rsPeers/getGroupInfoByName', req)['groupInfo']
+		self.info = self.rs.sendRequest('/rsPeers/getGroupInfoByName', req)['groupInfo']
 
 	def delete(self):
 		req = {'groupInfo': self.info}
-		sendRequest('/rsPeers/removeGroup', req)
+		self.rs.sendRequest('/rsPeers/removeGroup', req)
 		self.info = {}
 
-	def addPeer(self, peer):
-		self.assignPeer(peer, True)
+	# def addPeer(self, peer):
+	# 	self.assignPeer(peer, True)
 
-	def removePeer(self, peer):
-		self.assignPeer(peer, False)
+	# def removePeer(self, peer):
+	# 	self.assignPeer(peer, False)
 
 	def addPeers(self, peers):
 		self.assignPeers(peers, True)
@@ -74,33 +97,33 @@ class rsGroup:
 	def removePeers(self, peers):
 		self.assignPeers(peers, False)
 
-	def assignPeer(self, peer, assign):
-		req = {
-				'groupId': self.info['id'], 
-				'peerId': peer,
-				'assign': assign
-			}
-		resp = sendRequest('/rsPeers/assignPeerToGroup', req)
-		if resp['retval']:
-			if assign:
-				self.info['peerIds'].append(peer)
-			else:
-				self.info['peerIds'].remove(peer)
+	# def assignPeer(self, peer, assign):
+	# 	req = {
+	# 			'groupId': self.info['id'],
+	# 			'peerId': peer,
+	# 			'assign': assign
+	# 		}
+	# 	resp = sendRequest('/rsPeers/assignPeerToGroup', req)
+	# 	if resp['retval']:
+	# 		if assign:
+	# 			self.info['peerIds'].append(peer)
+	# 		else:
+	# 			self.info['peerIds'].remove(peer)
 
 	def assignPeers(self, peers, assign):
 		req = {
-				'groupId': self.info['id'], 
+				'groupId': self.info['id'],
 				'peerIds': peers,
 				'assign': assign
 			}
-		resp = sendRequest('/rsPeers/assignPeersToGroup', req)
+		resp = self.rs.sendRequest('/rsPeers/assignPeersToGroup', req)
 
 	def isAssigned(self, pgpId):
 		return pgpId in self.info['peerIds']
 
 	def update(self):
 		req = {'groupName': self.name}
-		self.info = sendRequest('/rsPeers/getGroupInfoByName', req)['groupInfo']
+		self.info = self.rs.sendRequest('/rsPeers/getGroupInfoByName', req)['groupInfo']
 
 def getDays(details):
 	days = time.time() - details['lastConnect']
@@ -109,8 +132,10 @@ def getDays(details):
 	return days
 
 if __name__ == "__main__":
-	group   = rsGroup(groupName)
-	friends = sendRequest('/rsPeers/getFriendList')['sslIds']
+	rs = rsHost()
+
+	group   = rsGroup(rs, groupName)
+	friends = rs.sendRequest('/rsPeers/getFriendList')['sslIds']
 
 	# we go though the list of locations
 	# -> we can have one friend with long time offline locations and recent locations
@@ -123,7 +148,7 @@ if __name__ == "__main__":
 	# add long offline friends
 	for friend in friends:
 		req = {'sslId': friend}
-		details = sendRequest('/rsPeers/getPeerDetails', req)['det']
+		details = rs.sendRequest('/rsPeers/getPeerDetails', req)['det']
 		pgpId = details['gpg_id']
 
 		d = getDays(details)
@@ -137,7 +162,7 @@ if __name__ == "__main__":
 	# remove recent online friends
 	for friend in friends:
 		req = {'sslId': friend}
-		details = sendRequest('/rsPeers/getPeerDetails', req)['det']
+		details = rs.sendRequest('/rsPeers/getPeerDetails', req)['det']
 		pgpId = details['gpg_id']
 
 		d = getDays(details)

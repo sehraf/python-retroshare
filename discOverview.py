@@ -1,31 +1,54 @@
 #!/usr/bin/env python3
 
-import json, requests, re
+import json, requests, re, argparse
 from git import Repo
 
 debug = False
 
-port = 9092
-user = 'test'
-pw = 'tset'
 repoPath = '~/Projects/RetroShare'
+
+gitHashLength = 9
 
 def debugDump(label, data):
 	if not debug: return
 	print(label, json.dumps(data, sort_keys=True, indent=4))
 
-def sendRequest(function, data = None):
-	url = 'http://127.0.0.1:' + str(port) + function
+class rsHost:
+	_ip = '127.0.0.1'
+	_port = '9092'
+	_auth = ('test', 'tset')
 
-	debugDump('POST: ' + url, data)
-	resp = requests.post(url=url, json=data, auth=(user, pw))
+	def __init__(self):
+		parser = argparse.ArgumentParser(description='reads standard RS json API parameters.')
+		parser.add_argument('--port', '-p', help='json api port')
+		parser.add_argument('--addr', '-a', help='json api address')
+		parser.add_argument('--user', '-u', help='json api user')
+		parser.add_argument('--pass', '-P', help='json api password', dest='pw')
+		args, _ = parser.parse_known_args()
 
-	# gracefully add 401 error
-	if resp.status_code == 401:
-		return {'retval': False}
+		# print(args)
 
-	debugDump('RESP', resp.json())
-	return resp.json()
+		if args.addr is not None:
+			self._ip = args.addr
+		if args.port is not None:
+			self._port = args.port
+		if args.user is not None and args.pw is not None:
+			self._auth = (args.user, args.pw)
+
+		pass
+
+	def sendRequest(self, function, data=None):
+		url = 'http://' + self._ip + ':' + self._port + function
+
+		debugDump('POST: ' + url, data)
+		resp = requests.post(url=url, json=data, auth=self._auth)
+
+		# gracefully add 401 error
+		if resp.status_code == 401:
+			return {'retval': False}
+
+		debugDump('RESP', resp.json())
+		return resp.json()
 
 
 class dataStruct:
@@ -76,18 +99,26 @@ class rsGit:
 		return True, tag == self.tag, tag, num
 
 
+def addUnknown(data, entry):
+	if entry in data:
+		data[entry] += 1
+	else:
+		data[entry] = 1
+
+
 if __name__ == "__main__":
+	rs = rsHost()
 	repo = rsGit()
 
-	friends = sendRequest('/rsPeers/getFriendList')['sslIds']
+	friends = rs.sendRequest('/rsPeers/getFriendList')['sslIds']
 	gits = {}
 	versions = {}
-	versionUnknown = []
+	versionUnknown = {}
 	entries = 0
 
 	for friend in friends:
 		req = {'id': friend}
-		resp = sendRequest('/rsGossipDiscovery/getPeerVersion', req)
+		resp = rs.sendRequest('/rsGossipDiscovery/getPeerVersion', req)
 
 		if not resp['retval']:
 			continue
@@ -100,7 +131,7 @@ if __name__ == "__main__":
 			# 0.6.4-524-gb51b1fc8c
 			match = re.search(rsGit.regEx, versionStr)
 			if match == None:
-				versionUnknown.append(versionStr)
+				addUnknown(versionUnknown, versionStr)
 				continue
 			version = match.group(1)
 			if match.group(3)[0] == 'g':
@@ -110,7 +141,7 @@ if __name__ == "__main__":
 				if match.group(2)[0] == 'g':
 					git = match.group(2)[1:]
 				else:
-					versionUnknown.append(versionStr)
+					addUnknown(versionUnknown, versionStr)
 					continue
 		else:
 			version = match.group(1)
@@ -120,14 +151,14 @@ if __name__ == "__main__":
 		#print(version, git)
 		if len(git) < 5:
 			#print('git hash too short', git)
-			versionUnknown.append(versionStr)
+			addUnknown(versionUnknown, versionStr)
 			continue
 		try:
 			# this is supposed to be a hexadecimal string
 			int('0x' + git, 16)
 		except ValueError:
 			#print('invalid git hash', git)
-			versionUnknown.append(versionStr)
+			addUnknown(versionUnknown, versionStr)
 			continue
 		
 		if version in versions:
@@ -165,20 +196,34 @@ if __name__ == "__main__":
 	print('---------------------------------')
 
 	# sort approximately to publish/commit date
-	sorter = lambda x: (x.valid, x.tagIsLatest, int(x.rev) if x.valid else -1)
+	sorter = lambda x: (x.valid, x.tagIsLatest, x.tag ,int(x.rev) if x.valid else -1)
 	for d in sorted(dataSet, key=sorter):
 		# get data
 		hash, tag, tagLatest, rev, valid, number = d.getData()
 
-		while len(hash) < 9:
+		while len(hash) < gitHashLength:
 			hash = hash + ' '
 
-		if valid:
-			print(hash + ':  rev: ' + rev + '\ttimes seen: ' + str(number) + ('' if tagLatest else '\t(' + tag + ')'))
-		else:
-			print(hash + ':  ~invalid~\ttimes seen: ' + str(number))
+		# build row to display
+		# start with hash
+		displayStr =  hash + ':  '
+		# add revision
+		displayStr += ('rev: ' + rev) if valid else '~invalid~'
+		# how often was the revision seen?
+		displayStr += '\ttimes seen: ' + str(number)
+		# add some visial feedback
+		displayStr += ' ' + ('*' * number )
+		# add tag when possible
+		displayStr += (
+			'' if tagLatest or not valid else (
+				('\t' if number < 2 else '') +
+				'\t(' + tag + ')'
+			)
+		)
+		print(displayStr)
 
-		if hash == '01234567 ':
+		# count how many are newer/older than the latest (official release)
+		if '01234567' in hash:
 			future = future + number
 			continue
 
@@ -198,4 +243,4 @@ if __name__ == "__main__":
 
 	print('The following version strings are not understand:')
 	for v in versionUnknown:
-		print(v)
+		print(versionUnknown[v], 'time(s)', v)

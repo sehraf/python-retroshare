@@ -1,45 +1,69 @@
 #!/usr/bin/env python3
 
-import json, requests, html
+import json, requests, html, argparse
 from subprocess import check_output
 
 debug = False
 
-port = 9092
-user = 'test'
-pw = 'tset'
 lobbyName = 'Retroshare Devel (signed)'
 # lobbyName = 'abcdefg'
-#program = './ipOverview.py'
+# lobbyName = 'testChat'
+# program = './ipOverview.py'
 program = './discOverview.py'
 
 def debugDump(label, data):
 	if not debug: return
 	print(label, json.dumps(data, sort_keys=True, indent=4))
 
-def sendRequest(function, data = None):
-	url = 'http://127.0.0.1:' + str(port) + function
 
-	debugDump('POST: ' + url, data)
-	resp = requests.post(url=url, json=data, auth=(user, pw))
+class rsHost:
+	_ip = '127.0.0.1'
+	_port = '9092'
+	_auth = ('test', 'tset')
 
-	# gracefully add 401 error
-	if resp.status_code == 401:
-		return {'retval': False}
+	def __init__(self):
+		parser = argparse.ArgumentParser(description='reads standard RS json API parameters.')
+		parser.add_argument('--port', '-p', dest='port')
+		parser.add_argument('--addr', '-a', dest='addr')
+		parser.add_argument('--user', '-u', dest='user')
+		parser.add_argument('--pass', '-P', dest='pw')
+		args = parser.parse_args()
 
-	debugDump('RESP', resp.json())
-	return resp.json()
+		# print(args)
+
+		if args.addr is not None:
+			self._ip = args.addr
+		if args.port is not None:
+			self._port = args.port
+		if args.user is not None and args.pw is not None:
+			self._auth = (args.user, args.pw)
+
+		pass
+
+	def sendRequest(self, function, data=None):
+		url = 'http://' + self._ip + ':' + self._port + function
+
+		debugDump('POST: ' + url, data)
+		resp = requests.post(url=url, json=data, auth=self._auth)
+
+		# gracefully add 401 error
+		if resp.status_code == 401:
+			return {'retval': False}
+
+		debugDump('RESP', resp.json())
+		return resp.json()
 
 
 class rsChat:
-	def __init__(self, name):
+	def __init__(self, rs, name):
 		self.id = 0
 		self.info = None
+		self.rs = rs
 
-		idList = sendRequest('/rsMsgs/getChatLobbyList')['cl_list']
+		idList = self.rs.sendRequest('/rsMsgs/getChatLobbyList')['cl_list']
 		for chatLobbyId in idList:
 			req = {'id': int(chatLobbyId)}
-			resp = sendRequest('/rsMsgs/getChatLobbyInfo', req)
+			resp = self.rs.sendRequest('/rsMsgs/getChatLobbyInfo', req)
 
 			if not resp['retval']:
 				continue
@@ -67,7 +91,7 @@ class rsChat:
 				},
 				'msg': msg
 			}
-		sendRequest('/rsMsgs/sendChat', req)
+		self.rs.sendRequest('/rsMsgs/sendChat', req)
 
 	def htmlify(self, msg):
 		# msg.replace('\t', '&nbsp;' * 8)
@@ -75,7 +99,8 @@ class rsChat:
 		# return msg
 
 if __name__ == "__main__":
-	chat = rsChat(lobbyName)
+	rs = rsHost()
+	chat = rsChat(rs, lobbyName)
 	output = check_output([program])
 	output = output.decode("utf-8") 
 

@@ -1,33 +1,56 @@
 #!/usr/bin/env python3
 
-import json, requests, re
+import json, requests, re, argparse
 
 debug = False
-
-port = 9092
-user = 'test'
-pw = 'tset'
 
 def debugDump(label, data):
 	if not debug: return
 	print(label, json.dumps(data, sort_keys=True, indent=4))
 
-def sendRequest(function, data = None):
-	url = 'http://127.0.0.1:' + str(port) + function
+class rsHost:
+	# some defaults
+	_ip = '127.0.0.1'
+	_port = '9092'
+	_auth = ('test', 'tset')
 
-	debugDump('POST: ' + url, data)
-	resp = requests.post(url=url, json=data, auth=(user, pw))
+	def __init__(self):
+		parser = argparse.ArgumentParser(description='reads standard RS json API parameters.')
+		parser.add_argument('--port', '-p', help='json api port')
+		parser.add_argument('--addr', '-a', help='json api address')
+		parser.add_argument('--user', '-u', help='json api user')
+		parser.add_argument('--pass', '-P', help='json api password', dest='pw')
+		args, _ = parser.parse_known_args()
 
-	# gracefully add 401 error
-	if resp.status_code == 401:
-		return {'retval': False}
+		# print(args)
 
-	debugDump('RESP', resp.json())
-	return resp.json()
+		if args.addr is not None:
+			self._ip = args.addr
+		if args.port is not None:
+			self._port = args.port
+		if args.user is not None and args.pw is not None:
+			self._auth = (args.user, args.pw)
+
+		pass
+
+	def sendRequest(self, function, data=None):
+		url = 'http://' + self._ip + ':' + self._port + function
+
+		debugDump('POST: ' + url, data)
+		resp = requests.post(url=url, json=data, auth=self._auth)
+
+		# gracefully add 401 error
+		if resp.status_code == 401:
+			return {'retval': False}
+
+		debugDump('RESP', resp.json())
+		return resp.json()
 
 
 if __name__ == "__main__":
-	friends = sendRequest('/rsPeers/getFriendList')['sslIds']
+	rs = rsHost()
+
+	friends = rs.sendRequest('/rsPeers/getFriendList')['sslIds']
 
 	# IPv4
 	v4 = 0
@@ -61,7 +84,7 @@ if __name__ == "__main__":
 
 	for friend in friends:
 		req = {'sslId': friend}
-		details = sendRequest('/rsPeers/getPeerDetails', req)['det']
+		details = rs.sendRequest('/rsPeers/getPeerDetails', req)['det']
 
 		ser = 1 if details['actAsServer'] else 0
 
