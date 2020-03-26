@@ -19,10 +19,10 @@ class rsHost:
 
 	def __init__(self):
 		parser = argparse.ArgumentParser(description='reads standard RS json API parameters.')
-		parser.add_argument('--port', '-p', dest='port')
-		parser.add_argument('--addr', '-a', dest='addr')
-		parser.add_argument('--user', '-u', dest='user')
-		parser.add_argument('--pass', '-P', dest='pw')
+		parser.add_argument('--port', '-p', help='json api port')
+		parser.add_argument('--addr', '-a', help='json api address')
+		parser.add_argument('--user', '-u', help='json api user')
+		parser.add_argument('--pass', '-P', help='json api password', dest='pw')
 		args = parser.parse_args()
 
 		# print(args)
