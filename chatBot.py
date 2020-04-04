@@ -142,8 +142,6 @@ class rsChat:
 		# msg.replace('\t', '&nbsp;' * 8)
 		return html.escape(msg)
 
-	# return msg
-
 	def isOK(self) -> bool:
 		return self.id != -1
 
@@ -206,66 +204,36 @@ class rsBot:
 		return info['lobby_name']
 
 	def _process_event(self, msg):
-		# print(msg)
-
 		# get chat id / source
 		type = msg['chat_id']['type']
 		if not rsChatType.valid(type):
 			# invalid, ignore
 			return
 
+		source_lobby_name = None
+		source_peer_name = ''
+
 		if type == rsChatType.TYPE_BROADCAST:
-			self._process_broadcast(msg)
+			# peer
+			source_peer_id = msg['broadcast_peer_id']
+			source_peer_name = self._get_peer_name(source_peer_id)
 		elif type == rsChatType.TYPE_LOBBY:
-			self._process_lobby(msg)
+			# lobby
+			source_lobby_id = msg['chat_id']['lobby_id']
+			source_lobby_name = self._get_lobby_name(source_lobby_id)
+			# peer
+			source_peer_id = msg['lobby_peer_gxs_id']
+			source_peer_name = self._get_gxs_id_name(source_peer_id)
 		elif type == rsChatType.TYPE_PRIVATE:
-			self._process_private(msg)
+			# peer
+			source_peer_id = msg['chat_id']['peer_id']
+			source_peer_name = self._get_peer_name(source_peer_id)
 		elif type == rsChatType.TYPE_PRIVATE_DISTANT:
-			self._process_private_distant(msg)
-
-	def _process_broadcast(self, msg):
-		source_peer_id = msg['broadcast_peer_id']
-		source_peer_name = self._get_peer_name(source_peer_id)
-
-		# print('received brodcast message')
-		# print('from', source_peer_name)
-		# print('msg ', msg['msg'])
-
-		self._process_message(msg, source_peer_name)
-
-	def _process_lobby(self, msg):
-		source_lobby_id = msg['chat_id']['lobby_id']
-		source_lobby_name = self._get_lobby_name(source_lobby_id)
-
-		source_peer_id = msg['lobby_peer_gxs_id']
-		source_peer_name = self._get_gxs_id_name(source_peer_id)
-
-		# print('received chat lobby message')
-		# print('in  ', source_lobby_name)
-		# print('from', source_peer_name)
-		# print('msg ', msg['msg'])
+			# peer
+			source_peer_id = msg['chat_id']['distant_chat_id']
+			source_peer_name = self._get_distant_peer_name(source_peer_id)
 
 		self._process_message(msg, source_peer_name, source_lobby_name)
-
-	def _process_private(self, msg):
-		source_peer_id = msg['chat_id']['peer_id']
-		source_peer_name = self._get_peer_name(source_peer_id)
-
-		# print('received private message')
-		# print('from', source_peer_name)
-		# print('msg ', msg['msg'])
-
-		self._process_message(msg, source_peer_name)
-
-	def _process_private_distant(self, msg):
-		source_peer_id = msg['chat_id']['distant_chat_id']
-		source_peer_name = self._get_distant_peer_name(source_peer_id)
-
-		# print('received distant chat message')
-		# print('from', source_peer_name, source_peer_id)
-		# print('msg ', msg['msg'])
-
-		self._process_message(msg, source_peer_name)
 
 	def _process_message(self, chat_message: json, sender_name: str, lobby_name: Union[str, None] = None):
 		# get the plain text message
@@ -279,7 +247,6 @@ class rsBot:
 			triggered = rule.triggered(txt)
 			if triggered is False:
 				continue
-			print(triggered)
 			groups = triggered[1]
 			print(rule.name, 'triggered')
 
@@ -312,9 +279,9 @@ class rsBot:
 			rng = random.randrange(max)
 			response = 'rolling a d' + str(max) + ': ' + str(rng)
 			self.chat.send(response, chat_message['chat_id'])
-	# if re.match('^!commands$', txt, re.IGNORECASE) is not None:
-	# 	response = '!info, !commands, !help'
-	# 	self.chat.send(response, chat_message['chat_id'])
+		# if re.match('^!commands$', txt, re.IGNORECASE) is not None:
+		# 	response = '!info, !commands, !help'
+		# 	self.chat.send(response, chat_message['chat_id'])
 
 
 if __name__ == "__main__":
@@ -331,6 +298,13 @@ if __name__ == "__main__":
 	chat = rsChat(rs)
 
 	bot = rsBot(rs, chat)
+	'''
+	Available replace pattern:
+	 - $$nick
+	 - $$message
+	 - $$match_x (x from 1 to number of capturing groups)
+	'''
+
 	# ping, pong, test
 	bot.add_rule(rsBotRule('ping', True, 'pong', [re.compile('^ping$', re.IGNORECASE)]))
 	bot.add_rule(rsBotRule('pong', True, 'pong²', [re.compile('^pong$', re.IGNORECASE)]))
@@ -338,96 +312,9 @@ if __name__ == "__main__":
 
 	# info, help
 	bot.add_rule(rsBotRule('info', True, 'I\'m just a python script!', [re.compile('^!info$', re.IGNORECASE)]))
-	bot.add_rule(rsBotRule('info', True, 'try !rules or !commands', [re.compile('^!help$', re.IGNORECASE)]))
+	bot.add_rule(rsBotRule('help', True, 'try !rules or !commands', [re.compile('^!help$', re.IGNORECASE)]))
 
 	# echo
 	bot.add_rule(rsBotRule('echo', True, '$$match_1', [re.compile('^!echo\s(.*)$', re.IGNORECASE)]))
 
 	bot.run()
-
-# lobby {
-# 	"mType": 15,
-# 	"mTime": 1585990254,
-# 	"mTime_sixtyfour_str": "1585990254",
-# 	"mChatMessage": {
-# 		"chat_id": {
-# 			"broadcast_status_peer_id": "00000000000000000000000000000000",
-# 			"type": 3,
-# 			"peer_id": "00000000000000000000000000000000",
-# 			"distant_chat_id": "00000000000000000000000000000000",
-# 			"lobby_id": 17803486546125065896,
-# 			"lobby_id_sixtyfour_str": "17803486546125065896"
-# 		},
-# 		"broadcast_peer_id": "00000000000000000000000000000000",
-# 		"lobby_peer_gxs_id": "1b95d9a2f6762dae2c1f2fd338d47c4f",
-# 		"peer_alternate_nickname": "",
-# 		"chatflags": 0,
-# 		"sendTime": 1585990254,
-# 		"recvTime": 1585990254,
-# 		"msg": "<body><style type=\"text/css\" RSOptimized=\"v2\">.S1{font-weight:400;}.S1{font-family:\\'NotoSansCJKJP\\';}.S0{color:#000000;}.S1{font-size:11pt;}.S1{font-style:normal;}</style><span><span class=\"S1\"><span class=\"S0\">a</span></span></span></body>",
-# 		"incoming": True,
-# 		"online": True
-# 	}
-# }
-
-# broadcast {
-# 	"chat_id": {
-# 		"broadcast_status_peer_id": "00000000000000000000000000000000",
-# 		"type": 4,
-# 		"peer_id": "00000000000000000000000000000000",
-# 		"distant_chat_id": "00000000000000000000000000000000",
-# 		"lobby_id": 0,
-# 		"lobby_id_sixtyfour_str": "0"
-# 	},
-# 	"broadcast_peer_id": "d6fb6c0f53d18303dcc9043111490e40",
-# 	"lobby_peer_gxs_id": "00000000000000000000000000000000",
-# 	"peer_alternate_nickname": "",
-# 	"chatflags": 1,
-# 	"sendTime": 1585991468,
-# 	"recvTime": 1585991468,
-# 	"msg": "<body><style type=\"text/css\" RSOptimized=\"v2\">.S1{font-weight:400;}.S1{font-family:\\'NotoSansCJKJP\\';}.S0{color:#000000;}.S1{font-size:11pt;}.S1{font-style:normal;}</style><span><span class=\"S1\"><span class=\"S0\">test</span></span></span></body>",
-# 	"incoming": True,
-# 	"online": True
-# }
-
-# private distant
-# {
-#     "chat_id": {
-#         "broadcast_status_peer_id": "00000000000000000000000000000000",
-#         "type": 2,
-#         "peer_id": "00000000000000000000000000000000",
-#         "distant_chat_id": "937feab871031cf4ba05d61190a7f940",
-#         "lobby_id": 0,
-#         "lobby_id_sixtyfour_str": "0"
-#     },
-#     "broadcast_peer_id": "00000000000000000000000000000000",
-#     "lobby_peer_gxs_id": "00000000000000000000000000000000",
-#     "peer_alternate_nickname": "",
-#     "chatflags": 2,
-#     "sendTime": 1586000100,
-#     "recvTime": 1586000101,
-#     "msg": "<body><style type=\"text/css\" RSOptimized=\"v2\">.S1{font-weight:400;}.S1{font-family:\\'NotoSansCJKJP\\';}.S0{color:#000000;}.S1{font-size:11pt;}.S1{font-style:normal;}</style><span><span class=\"S1\"><span class=\"S0\">distant</span></span></span></body>",
-#     "incoming": True,
-#     "online": True
-# }
-
-# private
-# {
-# 	"chat_id": {
-# 		"broadcast_status_peer_id": "00000000000000000000000000000000",
-# 		"type": 1,
-# 		"peer_id": "fa8b0b2f12acb6285f9afb77b31767bd",
-# 		"distant_chat_id": "00000000000000000000000000000000",
-# 		"lobby_id": 0,
-# 		"lobby_id_sixtyfour_str": "0"
-# 	},
-# 	"broadcast_peer_id": "00000000000000000000000000000000",
-# 	"lobby_peer_gxs_id": "00000000000000000000000000000000",
-# 	"peer_alternate_nickname": "",
-# 	"chatflags": 2,
-# 	"sendTime": 1586000106,
-# 	"recvTime": 1586000107,
-# 	"msg": "<body><style RSOptimized=\"v2\" type=\"text/css\">.S1{font-family:\\'Cantarell\\';}.S1{font-size:11pt;}.S1{font-weight:400;}.S0{color:#000000;}.S1{font-style:normal;}</style><span><span class=\"S1\"><span class=\"S0\">private</span></span></span></body>",
-# 	"incoming": True,
-# 	"online": True
-# }
