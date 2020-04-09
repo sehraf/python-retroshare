@@ -7,8 +7,6 @@ debug = False
 
 repoPath = '~/Projects/RetroShare'
 
-gitHashLength = 9
-
 def debugDump(label, data):
 	if not debug: return
 	print(label, json.dumps(data, sort_keys=True, indent=4))
@@ -105,6 +103,9 @@ def addUnknown(data, entry):
 	else:
 		data[entry] = 1
 
+def line():
+	print('-' * 50)
+
 
 if __name__ == "__main__":
 	rs = rsHost()
@@ -188,12 +189,12 @@ if __name__ == "__main__":
 	# 	valid, tagLatest, tag, rev = repo.getCommitNum(hash)
 
 	print('found ' + str(entries) + ' entries')
-	print('---------------------------------')
+	line()
 
 	# just sort by string, will follow RS's numbering scheme
 	for version, number in sorted(versions.items(), key=lambda x: x[0]):
-		print(version + ':\t' + ('\t' if len(version) < 9 else '') + 'times seen: ' + str(number))
-	print('---------------------------------')
+		print('{:24}times seen: {}'.format(version, number))
+	line()
 
 	# sort approximately to publish/commit date
 	sorter = lambda x: (x.valid, x.tagIsLatest, x.tag ,int(x.rev) if x.valid else -1)
@@ -201,26 +202,7 @@ if __name__ == "__main__":
 		# get data
 		hash, tag, tagLatest, rev, valid, number = d.getData()
 
-		while len(hash) < gitHashLength:
-			hash = hash + ' '
-
-		# build row to display
-		# start with hash
-		displayStr =  hash + ':  '
-		# add revision
-		displayStr += ('rev: ' + rev) if valid else '~invalid~'
-		# how often was the revision seen?
-		displayStr += '\ttimes seen: ' + str(number)
-		# add some visial feedback
-		displayStr += ' ' + ('*' * number )
-		# add tag when possible
-		displayStr += (
-			'' if tagLatest or not valid else (
-				('\t' if number < 2 else '') +
-				'\t(' + tag + ')'
-			)
-		)
-		print(displayStr)
+		print('{:12}{:12}times seen: {!s:3} {}'.format(hash, (('rev: ' + rev) if valid else '~invalid~'), number, ('' if tagLatest or not valid else ('(' + tag + ')'))))
 
 		# count how many are newer/older than the latest (official release)
 		if '01234567' in hash:
@@ -234,13 +216,13 @@ if __name__ == "__main__":
 			future = future + number
 		else: 
 			past = past + number
-	print('---------------------------------')
+	line()
 
 	print('older than last release:         ' + str(past))
 	print('newer than / equal last release: ' + str(future))
 	print('(excluding invalids, counting "01234567" as newer)')
-	print('---------------------------------')
+	line()
 
 	print('The following version strings are not understand:')
 	for v in versionUnknown:
-		print(versionUnknown[v], 'time(s)', v)
+		print('{:12} time(s) {!s}'.format(versionUnknown[v], v))
