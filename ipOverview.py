@@ -149,14 +149,20 @@ if __name__ == "__main__":
 			udpo = udpo + (1 - ser)
 			udpi = udpi + ser
 
+	def printStat(what : str, all : int, connected : int, num_in : int, num_out : int):
+		print('{:6}{!s:9} (connected: {!s:5} in: {!s:5} out: {!s:3})'.format(what, all, connected, num_in, num_out))
+
+	def printStat2(what : str, all : int, num_in : int, num_out : int):
+		print('{:15} (connected: {!s:5} in: {!s:5} out: {!s:3})'.format(what, all, num_in, num_out))
+
 	print('Connection statistics:')
-	print('IPv4: ' + str(v4) + '  \t(connected: ' + str(v4c) + '\tin: ' + str(v4i) + '\tout: ' + str(v4o) + ' )')
-	print('IPv6: ' + str(v6) + '  \t(connected: ' + str(v6c) + '\tin: ' + str(v6i) + '\tout: ' + str(v6o) + ' )')
+	printStat('IPv4', v4, v4c, v4i, v4o)
+	printStat('IPv6', v6, v6c, v6i, v6o)
 	print('')
 	print('Hidden services:')
-	print('Tor:  ' + str(t)  + '  \t(connected: ' + str(tc) + '\tin: ' + str(ti) + '\tout: ' + str(to) + ' )')
-	print('I2P:  ' + str(i)  + '  \t(connected: ' + str(ic) + '\tin: ' + str(ii) + '\tout: ' + str(io) + ' )')
+	printStat('Tor', t, tc, ti, to)
+	printStat('I2P', i, ic, ii, io)
 	print('')
 	print('TCP/UDP (excluding Tor/I2P):')
-	print('TCP:  ' + str(tcpi + tcpo)  + '  \t(in: ' + str(tcpi) + '\tout: ' + str(tcpo) + ' )')
-	print('UDP:  ' + str(udpi + udpo)  + '  \t(in: ' + str(udpi) + '\tout: ' + str(udpo) + ' )')
+	printStat2('TCP', tcpi + tcpo, tcpi, tcpo)
+	printStat2('UDP', udpi + udpo, udpi, udpo)
