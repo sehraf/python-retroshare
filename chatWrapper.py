@@ -5,8 +5,8 @@ from subprocess import check_output
 
 debug = False
 
-lobbyName = 'Retroshare Devel (signed)'
-# lobbyName = 'abcdefg'
+# lobbyName = 'Retroshare Devel (signed)'
+lobbyName = 'test'
 # lobbyName = 'testChat'
 # program = './ipOverview.py'
 program = './discOverview.py'
@@ -62,7 +62,10 @@ class rsChat:
 
 		idList = self.rs.sendRequest('/rsMsgs/getChatLobbyList')['cl_list']
 		for chatLobbyId in idList:
-			req = {'id': int(chatLobbyId)}
+			# both are working
+			req = {'id': chatLobbyId['xint64']}
+			# req = {'id': int(chatLobbyId['xstr64'])}
+
 			resp = self.rs.sendRequest('/rsMsgs/getChatLobbyInfo', req)
 
 			if not resp['retval']:
@@ -72,7 +75,9 @@ class rsChat:
 			# print(info['lobby_name'])
 
 			if info['lobby_name'] == name:
-				self.id = int(chatLobbyId)
+				# both are working
+				# self.id = chatLobbyId['xint64']
+				self.id = int(chatLobbyId['xstr64'])
 				self.info = info
 
 				break
